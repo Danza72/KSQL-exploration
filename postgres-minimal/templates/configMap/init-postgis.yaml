@@ -1,0 +1,22 @@
+{{ if .Values.postgis.enabled }}
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ $.Values.appName }}-postgis-init-user-db
+data:
+  init-user-db.sh: |-
+    #!/bin/bash
+    set -e
+    
+    export PGPASSWORD=$POSTGRESQL_POSTGRES_PASSWORD
+    export POSTGRES_USER=postgres
+    export POSTGRES_DB=$POSTGRESQL_DATABASE
+    ## try to create a $POSTGRES_USER db also
+    # createdb -U renderer -E UTF8 -O renderer renderer
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+      CREATE EXTENSION IF NOT EXISTS postgis;
+        CREATE EXTENSION IF NOT EXISTS hstore;
+        ALTER TABLE geometry_columns OWNER TO "$POSTGRES_USER";
+        ALTER TABLE spatial_ref_sys OWNER TO "$POSTGRES_USER";
+    EOSQL
+{{- end }}

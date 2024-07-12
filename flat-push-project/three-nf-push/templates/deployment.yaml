@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: three-nf-push
+  labels:
+    app: three-nf-push
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: three-nf-push
+  template:
+    metadata:
+      labels:
+        app: three-nf-push
+    spec:
+      containers:
+        - name: three-nf-push
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          env:
+            - name: PG_HOST
+              value: "{{ .Values.postgres.host }}"
+            - name: PG_PORT
+              value: "{{ .Values.postgres.port }}"
+            - name: PG_DATABASE
+              value: "{{ .Values.postgres.database }}"
+            - name: PG_USER
+              value: "{{ .Values.postgres.username }}"
+            - name: PG_PASSWORD
+              value: "{{ .Values.postgres.userPassword }}"
+            - name: TABLE_EMPLOYEES
+              value: {{ .Values.appConfig.tables.employees }}
+            - name: TABLE_JOBS
+              value: {{ .Values.appConfig.tables.jobs }}
+            - name: TABLE_STATES
+              value: {{ .Values.appConfig.tables.states }}
+            - name: TABLE_EMPLOYEE_ROLES
+              value: {{ .Values.appConfig.tables.employeeRoles }}

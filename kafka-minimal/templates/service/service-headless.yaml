@@ -1,0 +1,20 @@
+{{- if .Values.headlessService }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-{{ .Values.appName }}-headless
+  labels:
+    app: {{ .Values.appName }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: broker
+      port: 9092
+      protocol: TCP
+    - name: controller
+      port: {{ .Values.headless.servicePortController }}
+      protocol: TCP
+  clusterIP: None
+  selector:
+    app: {{ .Values.appName }}
+{{- end }}

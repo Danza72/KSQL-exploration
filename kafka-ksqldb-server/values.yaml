@@ -1,0 +1,34 @@
+# Default values
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+#################### Metadata ####################
+
+appName: "kafka-ksqldb-server"
+releaseManager: ""
+#################### Statefulset ####################
+server:
+  replicas: 3
+  image: "confluentinc/cp-ksqldb-server:7.4.1" #include tag as well
+
+cli:
+  enabled: true
+  replicas: 1
+  image: "confluentinc/cp-ksqldb-cli:7.4.1"
+
+
+#################### Environment Variable ####################
+
+kSqlListeners: "http://0.0.0.0:8088"
+additionalKsqlListeners: "http://0.0.0.0:8090"
+kSqlBootstrapServers: "svc-kafka-headless:9092"
+kSqlSchemaRegistryUrl: "http://svc-schemaregistry-headless:8081"
+kSqlLoggingProcessingStreamAutoCreate: "true"
+kSqlLoggingProcessingTopicAutoCreate: "true"
+sourceConnectUrl: "http://svc-kafkaconnect-headless:8083"
+
+################### Headless Service #########################
+service:
+  headlessService: true
+  port: 8088
+  type: ClusterIP

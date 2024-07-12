@@ -1,0 +1,9 @@
+Your deployment of "{{ .Values.appName }}" is successful on {{ .Release.Namespace }}.
+
+Released by: {{ .Values.releaseManager }}
+
+Summary:
+- StatefulSet "{{ .Values.appName }}" was created with {{ .Values.server.replicas }} replicas.
+{{- if .Values.service.headlessService }}
+- Headless Service was created on port {{ .Values.headlessServicePort }}.
+{{- end}}

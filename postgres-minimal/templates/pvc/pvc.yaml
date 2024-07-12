@@ -1,0 +1,18 @@
+{{- if .Values.createPvc }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ .Values.appName }}-data
+{{- if .Values.pvcPolicyKeep }}
+  annotations:
+    "helm.sh/resource-policy": keep
+    "argocd.argoproj.io/sync-options": Delete=false
+{{- end }}
+spec:
+  storageClassName: {{ .Values.storageClass }}
+  accessModes: 
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.storage }}
+{{- end }}

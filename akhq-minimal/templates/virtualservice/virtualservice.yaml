@@ -1,0 +1,19 @@
+{{- if .Values.serviceMesh }}
+kind: VirtualService
+apiVersion: networking.istio.io/v1beta1
+metadata:
+  name: {{ .Values.appName }}-ingress-virtual-service
+spec:
+  hosts:
+    - {{ .Values.akhq.hostName }}
+  gateways:
+    - istio-ingressgateway
+  http:
+    - match:
+        - port: 443
+      route:
+        - destination:
+            host: svc-{{ .Values.appName }}-headless.{{ .Release.Namespace }}.svc.cluster.local
+            port:
+              number: 8000
+{{- end }}

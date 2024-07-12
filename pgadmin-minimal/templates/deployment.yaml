@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.appName }}
+  labels:
+    app: {{ .Values.appName }}
+spec:
+  replicas: {{ .Values.replicas }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: {{ .Values.appName }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.appName }}
+    spec:
+      serviceAccountName: {{ .Release.Namespace }}-{{ .Values.appName }}
+      initContainers:
+        - name: init-chmod-data
+          image: {{ .Values.image }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/chown", "-R", "5050:5050", "/var/lib/pgadmin"]
+          volumeMounts:
+            - name: pgadmin-data-{{ .Release.Namespace }}
+              mountPath: /var/lib/pgadmin
+          securityContext:
+            runAsUser: 0
+      containers:
+      - name: pgadmin4
+        image: {{ .Values.image }}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 5050
+        env:
+        - name: PGADMIN_LISTEN_PORT
+          value: {{ .Values.headlessServicePort | quote }}
+        - name: PGADMIN_DEFAULT_EMAIL
+          value: {{ .Values.pgadminDefaultEmail | quote }}
+        - name: PGADMIN_DEFAULT_PASSWORD
+          {{- if .Values.userSecrets }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.userSecretName }}
+              key: {{ .Values.userSecretKey }}
+          {{- else }}
+          value: {{ .Values.userPasswordValue }}
+          {{- end }}
+        ports:
+        - name: {{ .Values.headlessServiceName }}
+          containerPort: {{ .Values.headlessServicePort }}
+      {{- if .Values.persistentStorage }}
+        volumeMounts:
+        - name: {{ .Values.appName }}-data-{{ .Release.Namespace }}
+          mountPath: /var/lib/pgadmin
+      volumes:
+      - name: {{ .Values.appName }}-data-{{ .Release.Namespace }}
+        persistentVolumeClaim:
+          claimName: {{ .Values.appName }}-data-{{ .Release.Namespace }}
+      {{- end }}

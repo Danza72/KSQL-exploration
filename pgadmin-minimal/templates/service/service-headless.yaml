@@ -1,0 +1,18 @@
+{{- if .Values.headlessService }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-{{ .Values.appName }}-headless
+  labels:
+    app: {{ .Values.appName }}
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+spec:
+  ports:
+  - name: {{ .Values.headlessServiceName }}
+    port: {{ .Values.headlessServicePort }}
+    targetPort: {{ .Values.headlessServiceName }}
+  selector:
+    app: {{ .Values.appName }}
+  clusterIP: None
+{{- end }}

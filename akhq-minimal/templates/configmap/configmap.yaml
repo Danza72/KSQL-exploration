@@ -1,0 +1,160 @@
+ apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.appName }}
+  labels:
+    app: {{ .Values.appName }}
+data:
+  application.yml: |-
+    micronaut:
+      security:
+        enabled: true
+        token:
+          jwt:
+            signatures:
+              secret:
+                generator:
+                  secret: {{ .Values.jwtSecret }}
+      server:
+        context-path: "/akhq" # if behind a reverse proxy, path to akhq without trailing slash (optional). Example: akhq is
+                         # behind a reverse proxy with url http://my-server/akhq, set base-path: "/akhq".
+                         # Not needed if you're behind a reverse proxy with subdomain http://akhq.my-server/
+        port: {{ .Values.headless.servicePort }}
+    akhq:
+      server:
+        access-log: # Access log configuration (optional)
+          enabled: true # true by default
+          name: org.akhq.log.access # Logger name
+          format: "[Date: {}] [Duration: {} ms] [Url: {} {}] [Status: {}] [Ip: {}] [User: {}]" # Logger format
+
+      # default kafka properties for each clients, available for admin / producer / consumer (optional)
+      clients-defaults:
+        consumer:
+          properties:
+            isolation.level: read_committed
+
+      # list of kafka cluster available for akhq
+      connections:
+        {{ .Values.kafkaClusterName }}: # url friendly name for the cluster (letter, number, _, -, ... dot are not allowed here)
+          properties: # standard kafka properties (optional)
+            bootstrap.servers: "{{- .Values.kafkaBootstrapServers }}"
+          schema-registry:
+            url: "http://{{- .Values.srSvcName }}" # schema registry url (optional)
+            type: "confluent" # schema registry type (optional). Supported types are "confluent" (default) or "tibco"
+            # Basic Auth user / pass
+            # basic-auth-username: basic-auth-user
+            # basic-auth-password: basic-auth-pass
+            # properties: # standard kafka properties (optional)
+              # ssl.protocol: TLS
+          connect:
+            - name: source
+              {{- if .Values.serviceMesh }}
+              url: "http://{{ .Values.connect.hostName }}"
+              {{- else }}
+              url: "{{ .Values.source }}"
+              {{- end }}
+            - name: sink
+              url: "{{ .Values.sink }}"
+          ksqldb:
+            - name: ksqldb
+              url: "{{ .Values.ksqldb }}"
+          # Ui Cluster Options (optional)
+          ui-options:
+            topic:
+              default-view: ALL  # default list view (ALL, HIDE_INTERNAL, HIDE_INTERNAL_STREAM, HIDE_STREAM). Overrides default
+              skip-consumer-groups: false # Skip loading consumer group information when showing topics. Overrides default
+              skip-last-record: true  # Skip loading last record date information when showing topics.  Overrides default
+            topic-data:
+              sort: NEWEST # default sort order (OLDEST, NEWEST) (default: OLDEST).  Overrides default
+
+      pagination:
+        page-size: 25 # number of elements per page (default : 25)
+        threads: 16 # Number of parallel threads to resolve page
+
+      # Topic list display options (optional)
+      topic:
+        retention: 604800000 # default retention period when creating topic
+        partition: 1 #  default number of partition when creating topic
+        replication: 1 # default number of replicas when creating topic
+        internal-regexps: # list of regexp to be considered as internal (internal topic can't be deleted or updated)
+          - "^_.*$"
+          - "^.*_schemas$"
+          - "^.*connect-config$"
+          - "^.*connect-offsets$1"
+          - "^.*connect-status$"
+        stream-regexps: # list of regexp to be considered as internal stream topic
+          - "^.*-changelog$"
+          - "^.*-repartition$"
+          - "^.*-rekey$"
+        skip-consumer-groups: false # Skip loading consumer group information when showing topics
+        skip-last-record: false # Skip loading last record date information when showing topics
+
+      # Topic display data options (optional)
+      topic-data:
+        size: 50 # max record per page (default: 50)
+        poll-timeout: 1000 # The time, in milliseconds, spent waiting in poll if data is not available in the buffer.
+
+      # Ui Global Options (optional)
+      ui-options:
+        topic:
+          default-view: ALL  # default list view (ALL, HIDE_INTERNAL, HIDE_INTERNAL_STREAM, HIDE_STREAM). Overrides default
+          skip-consumer-groups: false # Skip loading consumer group information when showing topics. Overrides default
+          skip-last-record: true  # Skip loading last record date information when showing topics.  Overrides default
+        topic-data:
+          sort: NEWEST # default sort order (OLDEST, NEWEST) (default: OLDEST).  Overrides default
+
+      # Auth & Roles (optional)
+      security:
+        default-group: topic-reader # Default groups for all the user even unlogged user
+        # Groups definition
+        groups:
+          admin: # unique key
+            name: admin # Group name
+            roles:  # roles for the group
+              - topic/read
+              - topic/insert
+              - topic/delete
+              - topic/config/update
+              - node/read
+              - node/config/update
+              - topic/data/read
+              - topic/data/insert
+              - topic/data/delete
+              - group/read
+              - group/delete
+              - group/offsets/update
+              - registry/read
+              - registry/insert
+              - registry/update
+              - registry/delete
+              - registry/version/delete
+              - acls/read
+              - connect/read
+              - connect/insert
+              - connect/update
+              - connect/delete
+              - connect/state/update
+              - ksqldb/read
+              - ksqldb/execute
+
+          #   attributes:
+          #     # Regexp to filter topic available for group
+          #     topics-filter-regexp: "test.*"
+          #     # Regexp to filter connect configs visible for group
+          #     connects-filter-regexp: "^test.*$"
+          #     # Regexp to filter consumer groups visible for group
+          #     consumer-groups-filter-regexp: "consumer.*"
+          # topic-reader: # unique key
+          #   name: topic-reader # Other group
+          #   roles:
+          #     - topic/read
+          #   attributes:
+          #     topics-filter-regexp: "test\\.reader.*"
+
+        # Basic auth configuration
+        basic-auth:
+          - username: {{ .Values.username }} # Username
+            password: {{ .Values.passwordSha256 }} # Password in sha256
+            groups: # Groups for the user
+              - admin
+              - topic-reader

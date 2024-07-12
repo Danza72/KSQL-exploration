@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.appName }}
+  labels:
+    app: {{ .Values.appName }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.appName }}
+  serviceName: svc-{{- .Values.appName }}-headless
+  podManagementPolicy: OrderedReady
+  replicas: {{ .Values.server.replicas }}
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.appName }}
+    spec:
+      containers:
+      - name: {{ .Values.appName }}
+        image: {{ .Values.server.image }}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: {{ .Values.service.port }}
+          name: server
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: KSQL_LISTENERS
+            value: "{{ .Values.kSqlListeners }}"
+          - name: KSQL_BOOTSTRAP_SERVERS
+            value: "{{ .Values.kSqlBootstrapServers }}"
+          - name: KSQL_KSQL_SCHEMA_REGISTRY_URL
+            value: "{{ .Values.kSqlSchemaRegistryUrl }}"
+          - name: KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE
+            value: "{{ .Values.kSqlLoggingProcessingStreamAutoCreate }}"
+          - name: KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE
+            value: "{{ .Values.kSqlLoggingProcessingTopicAutoCreate }}"
+          - name: KSQL_KSQL_CONNECT_URL
+            value: "{{  .Values.sourceConnectUrl }}"
+
+

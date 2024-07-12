@@ -1,0 +1,12 @@
+Your deployment of "{{ .Values.appName }}" is successful on {{ .Release.Namespace }}.
+
+Released by: {{ .Values.releaseManager }}
+
+Summary:
+- Deployment "{{ .Values.appName }}" was created with {{ .Values.replicas }} replicas.
+{{- if .Values.headlessService }}
+- Headless Service was created on port {{ .Values.headless.servicePortSchemaRegistry }}
+{{- end}}
+{{- if .Values.route.enabled }}
+- Route was created.
+{{- end }}

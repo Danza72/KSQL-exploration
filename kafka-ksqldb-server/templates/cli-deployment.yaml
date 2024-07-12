@@ -1,0 +1,21 @@
+{{- if .Values.cli.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.appName }}-cli
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.appName }}-cli
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.appName }}-cli
+    spec:
+      containers:
+      - name: {{ .Values.appName }}-cli
+        image: "{{ .Values.cli.image }}"
+        command: ["sleep"]
+        args: ["infinity"]
+{{- end }}

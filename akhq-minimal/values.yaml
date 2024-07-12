@@ -1,0 +1,89 @@
+# Default values
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+#################### Metadata ####################
+
+appName: 'akhq'
+kafkaClusterName: 'kafka-cluster' #cluster name string on AKHQ
+
+#################### Deployment ####################
+
+replicas: 1
+image: 'tchiotludo/akhq:0.24.0'
+
+#################### ConfigMap Variables ####################
+
+#Kafka Config
+kafkaBootstrapServers: 'svc-kafka-headless:9092' #<svc-name>.<namespace>:<port>,...
+
+#Schema Registry Config
+srSvcName: 'svc-schemaregistry-headless:8081' #<svc-name>.<namespace>:<port>
+
+#Connect Config
+source: 'http://kafkaconnect-0.svc-kafkaconnect-headless:8083' #http://<url>:<port> this should mirror the connect rest advertised hostname, can be either internal url or route url
+sink: 'http://kafkaconnect-0.svc-kafkaconnect-headless:8083' # http://<url>:<port> this should mirror the connect rest advertised hostname, can be either internal url or route url
+
+# Ksqldb Config
+ksqldb: 'http://svc-kafka-ksqldb-server-headless:8088'
+#Security
+jwtSecret: 'KtWZZEf26fh2QUCiETCpt40zkHi3ZyNM3fI2A4wV8H0=' #must be at least 256bit
+
+#Authentication
+username: 'admin'
+passwordSha256: '9a83572fcd4d8606bd0298c5fdd9807d8e5a8b09ab67ac89f76d842fa38346f6'
+# default password is 'plschangeme'
+# in linux cli, run 'echo -n 'plschangeme' | sha256sum "
+
+#################### Create Service - exposing your app! ####################
+# AKHQ will be exposed external via routes, a headless svc is used by default since no clusterIp is needed
+
+# No clusterIP (use service discovery/cluster DNS within cluster to reach)
+headless:
+  servicePort: 8000
+
+#################### Create Route - exposing your app with *.apps URLs ####################
+#for http based apps only (REST api or web UIs)
+
+route:
+  enabled: true
+  tls:
+    enabled: true
+    termination: 'edge' # edge | passthrough | reencrypt
+    insecureEdgeTerminationPolicy: "Redirect" # Redirect | None | Allow - not avail for passthrough
+
+### Readiness / Liveness probe config.
+### ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+readinessProbe:
+  enabled: false
+  prefix: "" # set same as `micronaut.server.context-path`
+  path: /health
+  port: management
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+  httpGetExtra: {}
+
+livenessProbe:
+  enabled: false
+  prefix: "" # set same as `micronaut.server.context-path`
+  path: /health
+  port: management
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+  httpGetExtra: {}
+  
+################### Service Mesh ##################################
+
+serviceMesh: false
+
+akhq:
+  hostName: akhq.com
+
+connectsource:
+  hostName: kafka-connect.com

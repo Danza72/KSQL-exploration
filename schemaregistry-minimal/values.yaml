@@ -1,0 +1,41 @@
+# Default values
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+#################### Metadata ####################
+
+appName: "schemaregistry"
+releaseManager: ''
+
+#################### Deployment ####################
+
+replicas: 1
+image: "confluentinc/cp-schema-registry:7.4.1"
+
+#################### Environment Variables ####################
+
+kafkaBootstrapServers: 'svc-kafka-headless:9092' # comma separated list of <host>:<port> e.g.192.168.126.11:30008
+
+#################### Create Service - exposing your app! ####################
+# headless service is used for internal and route is created for schemaregistry to expose externally
+
+# No clusterIP (use service discovery/cluster DNS within cluster to reach)
+headlessService: true
+
+headless:
+  servicePortSchemaRegistry: 8081
+
+#################### Create Route - exposing your app with *.apps URLs ####################
+
+route:
+  enabled: true
+  tls:
+    enabled: false
+    termination: 'edge' # edge | passthrough | reencrypt
+    insecureEdgeTerminationPolicy: "Redirect" # Redirect | None | Allow - not avail for passthrough
+
+################### Service Mesh ##################################
+
+serviceMesh:
+  enabled: false
+  hostName: schemaregistry.com

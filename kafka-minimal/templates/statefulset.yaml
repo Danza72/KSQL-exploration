@@ -1,0 +1,188 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.appName }}
+  labels:
+    app: {{ .Values.appName }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.appName }}
+  serviceName: svc-{{- .Values.appName }}-headless
+  podManagementPolicy: Parallel
+  replicas: {{ .Values.replicas }}
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.appName }}
+      {{- if or .Values.podAnnotations .Values.prometheus.jmx.enabled }}
+      annotations:
+      {{- if .Values.prometheus.jmx.enabled }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.prometheus.jmx.port | quote }}
+      {{- end }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ .Release.Namespace }}-{{ .Values.appName }}
+      securityContext:
+        runAsUser: 0
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values: 
+                - {{ .Values.appName }}
+            topologyKey: topology.kubernetes.io/hostname
+      containers:
+      {{- if .Values.prometheus.jmx.enabled }}
+      - name: prometheus-jmx-exporter
+        image: "{{ .Values.prometheus.jmx.image }}:{{ .Values.prometheus.jmx.imageTag }}"
+        imagePullPolicy: "{{ .Values.prometheus.jmx.imagePullPolicy }}"
+        command:
+        - java
+        - -XX:+UnlockExperimentalVMOptions
+        - -XX:+UseCGroupMemoryLimitForHeap
+        - -XX:MaxRAMFraction=1
+        - -XshowSettings:vm
+        - -jar
+        - jmx_prometheus_httpserver.jar
+        - {{ .Values.prometheus.jmx.port | quote }}
+        - /etc/jmx-kafka/jmx-kafka-prometheus.yml
+        ports:
+        - containerPort: {{ .Values.prometheus.jmx.port }}
+        resources:
+{{ toYaml .Values.prometheus.jmx.resources | indent 10 }}
+        volumeMounts:
+        - name: jmx-config
+          mountPath: /etc/jmx-kafka
+      {{- end }}
+      - name: broker
+        image: "{{ .Values.image }}"
+        imagePullPolicy: "{{ .Values.imagePullPolicy }}"
+        ports:
+        - containerPort: 9092
+          name: broker
+        {{- if .Values.prometheus.jmx.enabled }}
+        - containerPort: {{ .Values.jmx.port }}
+          name: jmx
+        {{- end }}
+        {{- if .Values.nodePortService }}
+          {{- $brokers := .Values.replicas | int }}
+          {{- $root := . }}
+          {{- range $i, $e := until $brokers }}
+        - containerPort: {{ add $root.Values.nodePort.firstListenerPort $i }}
+          name: nodeport-{{ $i }}
+          {{- end }}
+        {{- end }}
+        {{- if .Values.externalService }}
+          {{- $brokers := .Values.replicas | int }}
+          {{- $root := . }}
+          {{- range $i, $e := until $brokers }}
+        - containerPort: {{ add $root.Values.external.firstServicePort $i }}
+          name: external-{{ $i }}
+          {{- end }}
+        {{- end }}
+        - name: controller
+          containerPort: {{ .Values.headless.servicePortController }}
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        {{- if .Values.externalService }}
+        - name: EXTERNAL_HOST_NAME
+          value: {{ .Values.external.hostName | quote }}
+        {{- end }}
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: "{{ .Values.kafkaListenerSecurityProtocolMap }}"
+        - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+          value: "0"
+        - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: "3"
+        - name: KAFKA_PROCESS_ROLES
+          value: "{{ .Values.processRoles }}"
+        - name: KAFKA_INTER_BROKER_LISTENER_NAME
+          value: "{{ .Values.kafkaInterBrokerListenerName }}"
+        - name: KAFKA_LOG_DIRS
+          value: "{{ .Values.kafkaLogDirs }}/k"
+        - name: CLUSTER_ID
+          value: "{{ .Values.clusterID }}"
+        {{- if .Values.isolatedMode }}
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_DEFAULT_REPLICATION_FACTOR
+          value: "3"
+        - name: KAFKA_MIN_INSYNC_REPLICAS
+          value: "1"
+        - name: KAFKA_AUTO_LEADER_REBALANCE_ENABLE
+          value: "false"
+        {{- end }}
+        - name: KAFKA_LOG_CLEANER_ENABLE
+          value: "true"
+        - name: KAFKA_LOG_CLEANUP_POLICY
+          value: "delete"
+        # for entrprise verison only
+        # - name: KAFKA_METRIC_REPORTERS
+        #   value: "io.confluent.metrics.reporter.ConfluentMetricsReporter"
+        # - name: CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS
+        #   value: "PLAINTEXT://svc-{{- .Values.appName}}-headless:9092"
+        {{- if .Values.jmx.port }}
+        - name: KAFKA_JMX_PORT
+          value: "{{ .Values.jmx.port }}"
+        {{- end }}
+        command:
+        - sh
+        - -exc
+        - |
+          export KAFKA_NODE_ID=${HOSTNAME##*-} && \
+        {{- if .Values.nodePortService }}
+          export KAFKA_ADVERTISED_LISTENERS={{- printf "EXTERNAL://${HOST_IP}:$((%s + ${KAFKA_NODE_ID}))" (.Values.nodePort.firstListenerPort | toString) }},PLAINTEXT://${POD_NAME}.svc-{{- .Values.appName }}-headless.${POD_NAMESPACE}:9092 && \
+          export KAFKA_LISTENERS=CONTROLLER://0.0.0.0:{{- .Values.headless.servicePortController }},PLAINTEXT://0.0.0.0:9092{{- printf ",EXTERNAL://0.0.0.0:$((%s + ${KAFKA_NODE_ID}))" (.Values.nodePort.firstListenerPort | toString) }} && \
+          export KAFKA_CONTROLLER_QUORUM_VOTERS=0@{{- .Values.appName }}-0.svc-{{- .Values.appName }}-headless.${POD_NAMESPACE}:{{- .Values.headless.servicePortController }}{{- if not .Values.isolatedMode }},1@{{- .Values.appName }}-1.svc-{{- .Values.appName }}-headless.${POD_NAMESPACE}:{{- .Values.headless.servicePortController }},2@{{- .Values.appName }}-2.svc-{{- .Values.appName }}-headless.${POD_NAMESPACE}:{{- .Values.headless.servicePortController }}{{- end }} && \
+          export KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER && \
+          exec /etc/confluent/docker/run
+        {{- end }}
+        {{- if .Values.externalService }}
+          export KAFKA_ADVERTISED_LISTENERS={{- printf "EXTERNAL://${EXTERNAL_HOST_NAME}:$((%s + ${KAFKA_NODE_ID}))" (.Values.external.firstServicePort | toString) }},PLAINTEXT://${POD_NAME}.svc-{{- .Values.appName }}-headless.${POD_NAMESPACE}:9092 && \
+          export KAFKA_LISTENERS=CONTROLLER://0.0.0.0:{{- .Values.headless.servicePortController }},PLAINTEXT://0.0.0.0:9092{{- printf ",EXTERNAL://0.0.0.0:$((%s + ${KAFKA_NODE_ID}))" (.Values.external.firstServicePort | toString) }} && \
+          export KAFKA_CONTROLLER_QUORUM_VOTERS=0@{{- .Values.appName }}-0.svc-{{- .Values.appName }}-headless.${POD_NAMESPACE}:{{- .Values.headless.servicePortController }}{{- if not .Values.isolatedMode }},1@{{- .Values.appName }}-1.svc-{{- .Values.appName }}-headless.${POD_NAMESPACE}:{{- .Values.headless.servicePortController }},2@{{- .Values.appName }}-2.svc-{{- .Values.appName }}-headless.${POD_NAMESPACE}:{{- .Values.headless.servicePortController }}{{- end }} && \
+          export KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER && \
+          exec /etc/confluent/docker/run      
+        {{- end }}
+        volumeMounts:
+        - name: data-{{- .Release.Namespace }}
+          mountPath: {{ .Values.kafkaLogDirs }}
+      volumes:
+      {{- if .Values.prometheus.jmx.enabled }}
+      - name: jmx-config
+        configMap:
+          name: {{ .Values.appName }}-jmx-configmap
+      {{- end }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data-{{- .Release.Namespace }}
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: "{{ .Values.storage }}"
+      storageClassName: {{ .Values.storageClass }}

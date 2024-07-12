@@ -1,0 +1,69 @@
+# Default values
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+#################### Metadata ####################
+
+appName: "kafkaconnect"
+releaseManager: ''
+
+#################### Statefulset ####################
+
+replicas: 3
+image: confluentinc/cp-kafka-connect:7.4.1  #<image>:<tag>
+
+#################### Environment Variables ####################
+
+kafkaBootstrapServers: "svc-kafka-headless:9092"
+connectRestAdvertisedHostname: "svc-kafkaconnect-headless" #internal hostname, no need port
+connectValueConverterSchemaRegistrtryURL: "svc-schemaregistry-headless:8081" #staging "http://schemaregistry-helm-test.apps.bon.starforge.mil:80"
+
+connectGroupID: "kafkaconnect-group"
+connectConfigStorageTopic: "kafkaconnect-configs"
+connectOffsetStorageTopic: "kafkaconnect-offsets"
+connectStatusStorageTopic: "kafkaconnect-status"
+connectConfigReplicationFactor: 3
+connectOffsetReplicationFactor: 3
+connectStatusReplicationFactor: 3
+
+connectKeyConverter: "org.apache.kafka.connect.storage.StringConverter"
+connectValueConverter: "io.confluent.connect.avro.AvroConverter"
+
+classPath: "/usr/share/java/monitoring-interceptors/monitoring-interceptors-7.4.1.jar"
+connectConsumerInterceptorClasses: "io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor"
+connectProducerInterceptorClasses: "io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor"
+connectPluginPath: "/usr/share/java,/usr/share/confluent-hub-components"
+connectLOG4JLoggers: "org.apache.zookeeper=ERROR,org.I0Itec.zkclient=ERROR,org.reflections=ERROR"
+
+#################### Create Service - exposing your app! ####################
+# If exposing externally, route (see next section) is preferred over nodePort from security standpoint
+
+# No clusterIP (use service discovery/cluster DNS within cluster to reach)
+headlessService: true
+headlessServicePort: 8083
+
+# Expose to all worker nodes on <nodePort>
+nodePortService: false
+nodePortServicePort: 8083
+nodePort: 30051
+
+#################### Create Route - exposing your app with *.apps URLs ####################
+
+route: true
+targetService: "headless" # acceptable values nodeport | headless | clusterip
+tls: false # default to edge-termination
+
+
+##################### Gateway Terminated TLS #################################################
+
+serviceMesh: false
+connectHostName: "kafka-connect.com"
+
+broker:
+  replicas: 3
+  hostName: "kafka.com"
+  firstServicePort: 19090
+
+# Default values
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.

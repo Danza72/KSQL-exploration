@@ -1,0 +1,23 @@
+image:
+  repository: zand72/three-nf-push
+  tag: latest
+
+postgres:
+  host: svc-postgres-headless
+  port: 5432
+  database: postgres-db
+  username: postgres-db
+  userPassword: plschangeme
+  superUserPassword: plschangemepls
+  table: three-nf
+
+appConfig:
+  tables:
+    employees: "employees"
+    jobs: "jobs"
+    states: "states"
+    employeeRoles: "employee_roles"
+
+
+ingress:
+  enabled: false

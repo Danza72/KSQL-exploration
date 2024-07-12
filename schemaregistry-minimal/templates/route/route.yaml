@@ -1,0 +1,22 @@
+{{- if .Values.route.enabled }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: schemaregistry
+  labels:
+    app: {{ .Values.appName }}
+  annotations:
+    haproxy.route.openshift.io/timeout: 180s
+spec:
+  port:
+    targetPort: {{ .Values.appName }}
+  to:
+    kind: Service
+    name: svc-{{- .Values.appName }}-headless
+  {{- if .Values.route.tls.enabled }}
+  tls:
+    termination: {{ .Values.route.tls.termination }}
+    insecureEdgeTerminationPolicy: {{ .Values.route.tls.insecureEdgeTerminationPolicy }}
+    destinationCACertificate: ""
+  {{- end }}
+{{- end }}

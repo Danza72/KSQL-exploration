@@ -1,0 +1,63 @@
+# Default values
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+#################### Metadata ####################
+
+appName: "postgres"
+
+#################### Deployment ####################
+
+replicas: 1
+image: "bitnami/postgresql:16.1.0-debian-11-r0" #include tag as well, if not will pull latest
+busyboxImage: "busybox:1.36"
+containerPort: 5432
+
+#################### Environment Variables ####################
+
+dbName: "three_nf" #db to create
+userName: "postgres-db" #non-privileged user to create
+userPassword: "plschangeme"
+superUserPassword: "plschangemepls"
+
+secrets:
+  create: false
+  enabled: false
+  secretNameDB: starlake-credentials-db
+  secretKeyDB: dbPassword
+  secretNameSuper: starlake-credentials-super
+  secretKeySuper: superPassword
+  
+# Unused
+externalSecrets:
+  enabled: false
+  secretStoreName: vault-backend
+  secretStoreKind: ClusterSecretStore
+  vaultDbKey: secret/starlake-db
+  vaultSuperKey: secret/starlake-super
+
+#################### Create Persistent Storage for your app! ####################
+
+createPvc: true
+overridePvcName: "" #when restoring to a snapshot, restore as PVC first then insert PVC name here, leave at "" if not in use
+storage: "1Gi"
+provisioner: true #set true to use democratic-csi to provision PV, u should have this set up alrdy
+storageClass: "" # freenas-iscsi-csi | freenas-nfs-csi | crc-csi-hostpath-provisioner - for openshift local
+
+# Set the `"helm.sh/resource-policy": keep` & argocd.argoproj.io/sync-options: Delete=false annotation on PVCs to prevent accidental deletion
+pvcPolicyKeep: false
+
+#################### Create Service - exposing your app! ####################
+
+# No clusterIP (use service discovery/cluster DNS within cluster to reach)
+headlessService: true
+headlessServicePort: 5432
+
+# NodePort (assign ip within cluster) - pls note that this is cluster wide!
+nodePortService: false
+nodePortServicePort: 5432
+nodePort: 31000 #30000-32767
+
+########## postgis extension ##########
+postgis:
+  enabled: false

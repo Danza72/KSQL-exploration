@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.appName }}
+  labels:
+    app: {{ .Values.appName }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.appName }}
+  serviceName: svc-{{- .Values.appName }}-headless
+  podManagementPolicy: OrderedReady
+  replicas: {{ .Values.replicas }}
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.appName }}
+    spec:
+      # affinity:
+      #   podAntiAffinity:
+      #     requiredDuringSchedulingIgnoredDuringExecution:
+      #     - labelSelector:
+      #         matchExpressions:
+      #         - key: app
+      #           operator: In
+      #           values: 
+      #           - {{ .Values.appName }}
+      #       topologyKey: topology.kubernetes.io/hostname
+      containers:
+      - name: {{ .Values.appName }}
+        image: "{{ .Values.image }}"
+        imagePullPolicy: "{{ .Values.imagePullPolicy }}"
+        ports:
+        - name: rest
+          containerPort: {{ .Values.headlessServicePort }}
+        env:
+        - name: CONNECT_BOOTSTRAP_SERVERS
+          value: {{ .Values.kafkaBootstrapServers }}
+        - name: CONNECT_GROUP_ID
+          value: {{ .Values.connectGroupID }}
+        - name: CONNECT_CONFIG_STORAGE_TOPIC
+          value: {{ .Values.connectConfigStorageTopic }}
+        - name: CONNECT_CONFIG_REPLICATION_FACTOR
+          value: {{ .Values.connectConfigReplicationFactor | quote }}
+        - name: CONNECT_OFFSET_STORAGE_TOPIC
+          value: {{ .Values.connectOffsetStorageTopic }}
+        - name: CONNECT_OFFSET_REPLICATION_FACTOR
+          value: {{ .Values.connectOffsetReplicationFactor | quote }}
+        - name: CONNECT_STATUS_STORAGE_TOPIC
+          value: {{ .Values.connectStatusStorageTopic }}
+        - name: CONNECT_STATUS_REPLICATION_FACTOR
+          value: {{ .Values.connectStatusReplicationFactor | quote }}
+        - name: CONNECT_KEY_CONVERTER
+          value: {{ .Values.connectKeyConverter }}
+        - name: CONNECT_VALUE_CONVERTER
+          value: {{ .Values.connectValueConverter }}
+        - name: CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL
+          value: {{ .Values.connectValueConverterSchemaRegistrtryURL }}
+        - name: CLASSPATH
+          value: {{ .Values.classPath }}
+        - name: CONNECT_PRODUCER_INTERCEPTOR_CLASSES
+          value: {{ .Values.connectProducerInterceptorClasses }}
+        - name: CONNECT_CONSUMER_INTERCEPTOR_CLASSES
+          value: {{ .Values.connectConsumerInterceptorClasses }}
+        - name: CONNECT_PLUGIN_PATH
+          value: {{ .Values.connectPluginPath }}
+        - name: CONNECT_LOG4J_LOGGERS
+          value: {{ .Values.connectLOG4JLoggers }}
+        command:
+        - sh
+        - -exc
+        - |
+          export CONNECT_REST_ADVERTISED_HOST_NAME=$(hostname).{{ .Values.connectRestAdvertisedHostname }}
+          exec /etc/confluent/docker/run

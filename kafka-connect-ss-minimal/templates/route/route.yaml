@@ -1,0 +1,16 @@
+{{- if .Values.route }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Values.appName }}
+  labels:
+    app: {{ .Values.appName }}
+  annotations:
+    haproxy.route.openshift.io/timeout: 180s
+spec:
+  port:
+    targetPort: rest
+  to:
+    kind: Service
+    name: svc-{{ .Values.appName }}-headless
+{{- end }}

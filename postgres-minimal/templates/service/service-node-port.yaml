@@ -1,0 +1,17 @@
+{{- if .Values.nodePortService }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-{{ .Values.appName }}-nodeport
+  labels:
+    app: {{ .Values.appName }}
+spec:
+  type: NodePort
+  ports:
+    - name: client
+      port: {{ .Values.nodePortServicePort }}
+      targetPort: client
+      nodePort: {{ .Values.nodePort }}
+  selector:
+    app: {{ .Values.appName }}
+{{- end }}

@@ -1,0 +1,13 @@
+Your deployment of "{{ .Values.appName }}" is successful on {{ .Release.Namespace }}.
+
+Summary:
+- Deployment "{{ .Values.appName }}" was created with {{ .Values.replicas }} replicas.
+{{- if and (.Values.persistentStorage) (eq .Values.overridePvcName "") }}
+- PVC for {{ .Values.storage }} was created.
+{{- end}}
+{{- if .Values.headlessService }}
+- Headless Service was created --> port {{ .Values.headlessServicePort }}.
+{{- end}}
+{{- if .Values.nodePortService }}
+- Service was created with with type:NodePort on port {{ .Values.nodePortServicePort }} --> port {{ .Values.containerPort }}.
+{{- end}}

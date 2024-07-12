@@ -1,0 +1,15 @@
+Your deployment of "{{ .Values.appName }}" is successful on {{ .Release.Namespace }}.
+
+Released by: {{ .Values.releaseManager }}
+
+Summary:
+1. Deployment "{{ .Values.appName }}" was created with {{ .Values.replicas }} replicas.
+2. Configmap with the following variables set:
+- bootstrap.servers: "{{- .Values.kafkaBootstrapServers }}
+- schemaregistry url: http://{{- .Values.srSvcName }}
+- name: source
+    url: "{{ .Values.source }}"
+- name: sink
+    url: "{{ .Values.sink }}"
+3. Headless Service was created on port {{ .Values.headless.servicePort }}.
+4. Route was created for AKHQ.

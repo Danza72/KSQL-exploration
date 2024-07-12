@@ -1,0 +1,27 @@
+{{- if .Values.nodePortService }}
+  {{- $fullName := .Values.appName }}
+  {{- $brokers := .Values.replicas | int }}
+  {{- $servicePort := .Values.nodePort.servicePort }}
+  {{- $root := . }}
+  {{- range $i, $e := until $brokers }}
+    {{- $externalListenerPort := add $root.Values.nodePort.firstListenerPort $i }}
+    {{- $responsiblePod := printf "%s-%d" (printf "%s" $fullName) $i }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-{{ $fullName }}-{{ $i }}-nodeport
+  labels:
+    app: {{ $fullName }}
+spec:
+  type: NodePort
+  ports:
+    - name: external-broker
+      port: {{ $servicePort }}
+      targetPort: {{ $externalListenerPort }}
+      nodePort: {{ $externalListenerPort }}
+      protocol: TCP
+  selector:
+    app: {{ $fullName }}
+  {{- end }}
+{{- end }}

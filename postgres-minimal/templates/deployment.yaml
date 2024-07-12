@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.appName }}
+  labels:
+    app: {{ .Values.appName }}
+spec:
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.appName }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.appName }}
+    spec:
+      serviceAccountName: default
+      securityContext:
+        fsGroup: {{ .Values.fsGroup }}
+      initContainers:
+      - name: init
+        image: {{ .Values.busyboxImage }}
+        imagePullPolicy: IfNotPresent
+        command: ["sh", "-c"]
+        securityContext:
+          runAsUser: {{ .Values.userId }}
+        args:
+        - rm -rf /bitnami/postgresql/lost+found;
+        volumeMounts:
+        - name: {{ .Values.appName }}-data
+          mountPath: /bitnami/postgresql
+      containers:
+      - name: {{ .Values.appName }}
+        image: {{ .Values.image }}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: client
+          containerPort: {{ .Values.containerPort }}
+        env:
+        - name: POSTGRESQL_USERNAME
+          value: {{ .Values.userName }}
+        - name: "POSTGRESQL_PASSWORD"
+          {{- if .Values.secrets.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.secrets.secretNameDB }}
+              key: {{ .Values.secrets.secretKeyDB }}
+          {{- else }}
+          value: {{ .Values.userPassword }}
+          {{- end }}
+        - name: "POSTGRESQL_DATABASE"
+          value: {{ .Values.dbName }}
+        - name: "POSTGRESQL_POSTGRES_PASSWORD"
+          {{- if .Values.secrets.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.secrets.secretNameSuper }}
+              key: {{ .Values.secrets.secretKeySuper }}
+          {{- else }}
+          value: {{ .Values.superUserPassword }}
+          {{- end }}
+        livenessProbe:
+          failureThreshold: 6
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+          exec:
+            command:
+              - /bin/bash
+              - -c
+              - exec pg_isready -U "postgres" -h 127.0.0.1 -p 5432
+        readinessProbe:
+          failureThreshold: 6
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+          exec:
+            command:
+              - /bin/sh
+              - -c
+              - -e
+              - |
+                exec pg_isready -U "postgres" -h 127.0.0.1 -p 5432
+                [ -f /opt/bitnami/postgresql/tmp/.initialized ] || [ -f /bitnami/postgresql/.initialized ]
+        resources:
+          limits: {}
+          requests:
+            cpu: 250m
+            memory: 256Mi
+        volumeMounts:
+        - name: {{ .Values.appName }}-data
+          mountPath: /bitnami/postgresql
+        - name: dshm
+          mountPath: /dev/shm
+        {{- if .Values.postgis.enabled }}
+        - name: init-user-db
+          mountPath: /docker-entrypoint-initdb.d/
+        {{- end}}
+      volumes:
+      - name: dshm
+        emptyDir:
+          medium: Memory
+      {{- if and (.Values.createPvc) }}
+      - name: {{ .Values.appName }}-data
+        persistentVolumeClaim:
+          {{- if ne .Values.overridePvcName "" }}
+          claimName: {{ .Values.overridePvcName }}
+          {{- else }}
+          claimName: {{ .Values.appName }}-data
+          {{- end }}
+      {{- else }}
+      - name: {{ .Values.appName }}-data
+        emptyDir:
+          sizeLimit: 1Gi
+      {{- end }}
+      {{- if .Values.postgis.enabled }}
+      - name: init-user-db
+        configMap:
+          name: {{ $.Values.appName }}-postgis-init-user-db
+          defaultMode: 420
+      {{- end }}
+    

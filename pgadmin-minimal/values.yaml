@@ -1,0 +1,43 @@
+#################### Metadata ####################
+
+appName: pgadmin
+releaseManager: ''
+
+#################### Deployment ####################
+
+replicas: 1
+image: "dpage/pgadmin4:8.6"
+
+#################### Create Persistent Storage for your app! ####################
+
+persistentStorage: true
+storage: "20Gi"
+volumeMode: "Block" # "Filesystem" | "Block"
+provisioner: true #set true to use democratic-csi to provision PV, u should have this set up alrdy
+storageClass: "freenas-iscsi-csi" # freenas-iscsi-csi | freenas-nfs-csi
+overridePvcName: "" #when restoring to a snapshot, restore as PVC first then insert PVC name here, leave at "" if not in use
+
+#################### Environment Variables ####################
+
+pgadminDefaultEmail: "pgadm@test.net" #also sets this user as superuser
+userSecrets: false  #use K8s secrets, when false, will default to password
+userSecretName: ''
+userSecretKey: ''
+userPasswordValue: "plschangeme"
+
+#################### Create Service - exposing your app! ####################
+
+# No clusterIP (use service discovery/cluster DNS within cluster to reach)
+headlessService: true
+headlessServiceName: ui
+headlessServicePort: 6789
+
+#################### Create Route - exposing your app with *.apps URLs ####################
+
+route:
+  enabled: true
+  tls:
+    enabled: false
+    termination: 'edge' # edge | passthrough | reencrypt
+    insecureEdgeTerminationPolicy: "Redirect" # Redirect | None | Allow - not avail for passthrough
+
